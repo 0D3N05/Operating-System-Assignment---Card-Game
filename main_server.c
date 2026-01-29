@@ -1,4 +1,62 @@
 #include "game_server_core.h"
+#include <pthread.h>
+#include <unistd.h>
+#include <stdio.h>
+
+// =========================
+// Scheduler Thread
+// =========================
+void* scheduler_thread(void* arg) {
+    SharedCardGameData* game = (SharedCardGameData*)arg;
+
+    while (game->game_status == 1) { // run while game is active
+        lock_semaphore(game->semaphore_id);
+
+        // Round robin: move to next active player
+        int next_turn = (game->current_turn + 1) % game->num_players;
+        while (!game->player_active[next_turn]) {
+            next_turn = (next_turn + 1) % game->num_players;
+        }
+
+        game->current_turn = next_turn;
+
+        unlock_semaphore(game->semaphore_id);
+
+        sleep(1); // pacing delay
+    }
+    return NULL;
+}
+
+// =========================
+// Logger Thread
+// =========================
+void* logger_thread(void* arg) {
+    SharedCardGameData* game = (SharedCardGameData*)arg;
+    FILE* logf = fopen("game.log", "a");
+    if (!logf) {
+        perror("log file");
+        return NULL;
+    }
+
+    while (game->game_status == 1) {
+        lock_semaphore(game->semaphore_id);
+
+        fprintf(logf,
+                "[LOG] Turn=%d | Players=%d | DeckSize=%d | DiscardSize=%d\n",
+                game->current_turn,
+                game->num_players,
+                game->deck_size,
+                game->discard_size);
+
+        fflush(logf);
+        unlock_semaphore(game->semaphore_id);
+
+        sleep(2); // avoid busy loop
+    }
+
+    fclose(logf);
+    return NULL;
+}
 
 int main() {
     printf("Simplified Card Draw Game - Server Core\n");
@@ -68,7 +126,12 @@ int main() {
         printf("Game started successfully!\n");
         print_game_state(game);
         
-        // Demo a few turns
+        // Create scheduler & logger threads (Step 2)
+        pthread_t sched_tid, log_tid;
+        pthread_create(&sched_tid, NULL, scheduler_thread, game);
+        pthread_create(&log_tid, NULL, logger_thread, game);
+        
+        // Demo a few turns (original code unchanged)
         printf("\nSimulating 3 turns:\n");
         for (int i = 0; i < 3; i++) {
             printf("Turn %d: Player %d's turn\n", i + 1, get_current_turn(game));
@@ -78,6 +141,11 @@ int main() {
         
         printf("\nFinal game state:\n");
         print_game_state(game);
+
+        // End game and join threads
+        game->game_status = 2;
+        pthread_join(sched_tid, NULL);
+        pthread_join(log_tid, NULL);
     }
     
     // Wait for child processes

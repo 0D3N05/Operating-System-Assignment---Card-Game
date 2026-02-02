@@ -137,3 +137,22 @@ void print_game_state(SharedCardGameData* game) {
         printf("Player %d: PID=%d, Score=%d\n", i, game->player_pids[i], game->player_scores[i]);
     }
 }
+
+int draw_card(SharedCardGameData* game, int player_id) {
+    if (game->deck_size <= 0) return -1; // Empty deck
+    if (game->player_hand_size[player_id] >= MAX_CARDS_PER_PLAYER) return -2; // Hand full
+
+    // 1. Get top card
+    int card = game->deck[game->deck_size - 1];
+    game->deck_size--;
+
+    // 2. Add to player hand
+    int hand_idx = game->player_hand_size[player_id];
+    game->player_hands[player_id][hand_idx] = card;
+    game->player_hand_size[player_id]++;
+
+    // 3. Update Score (Simple rule: Card Value = Score)
+    game->player_scores[player_id] += card;
+
+    return card;
+}

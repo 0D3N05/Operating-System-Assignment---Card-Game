@@ -76,12 +76,91 @@ void unlock_semaphore(int sem_id) {
     semop(sem_id, &op, 1);
 }
 
+// Helper to draw a card safely
+int draw_card(SharedCardGameData* game, int player_id) {
+    if (game->deck_size <= 0) return -1; // Empty deck
+    if (game->player_hand_size[player_id] >= MAX_CARDS_PER_PLAYER) return -2; // Hand full
+
+    int card = game->deck[game->deck_size - 1];
+    game->deck_size--;
+
+    int hand_idx = game->player_hand_size[player_id];
+    game->player_hands[player_id][hand_idx] = card;
+    game->player_hand_size[player_id]++;
+
+    game->player_scores[player_id] += card;
+
+    return card;
+}
+
+void display_table(SharedCardGameData* game, int player_id) {
+    
+    printf("\033[H\033[J");
+    printf("=== PLAYER %d (PID: %d) ===\n", player_id, getpid());
+    printf("Your Score: %d\n", game->player_scores[player_id]);
+    printf("Cards in Hand: ");
+    for(int i=0; i < game->player_hand_size[player_id]; i++) {
+        printf("[%d] ", game->player_hands[player_id][i]);
+    }
+    printf("\n\n");
+    
+    printf("--- Opponents ---\n");
+    for(int i=0; i < game->num_players; i++) {
+        if(i != player_id) {
+            printf("Player %d: Score %d\n", i, game->player_scores[i]);
+        }
+    }
+    printf("-----------------\n");
+}
+
+void run_client(int player_id, SharedCardGameData* game) {
+    printf("[CLIENT] Player %d ready.\n", player_id);
+
+    while (game->game_status != 2) {
+        
+        if (get_current_turn(game) != player_id) {
+            usleep(100000); 
+            continue;
+        }
+
+        display_table(game, player_id);
+        printf("\n>>> YOUR TURN! Press ENTER to draw a card...");
+        getchar(); 
+        
+        printf("Drawing card...\n");
+        lock_semaphore(game->semaphore_id);
+        
+        int card = draw_card(game, player_id);
+        
+        set_next_turn(game);
+        
+        unlock_semaphore(game->semaphore_id);
+
+        if (card >= 0) {
+            printf("You drew card #%d!\n", card);
+        } else {
+            printf("Could not draw card (Deck empty?).\n");
+        }
+        
+        sleep(1); 
+        printf("Turn passed. Waiting...\n");
+    }
+    
+    printf("Game Over! Final Score: %d\n", game->player_scores[player_id]);
+    exit(0);
+}
+
 // Rest of your functions remain the same...
-pid_t create_client_process(int player_id) {
+pid_t create_client_process(int player_id, SharedCardGameData* game) {
     pid_t pid = fork();
+    
+    if (pid < 0) {
+        perror("fork failed");
+        return -1;
+    }
+    
     if (pid == 0) {
-        printf("[CLIENT %d] PID: %d\n", player_id, getpid());
-        sleep(2);
+        run_client(player_id, game); 
         exit(0);
     }
     return pid;
@@ -138,21 +217,3 @@ void print_game_state(SharedCardGameData* game) {
     }
 }
 
-int draw_card(SharedCardGameData* game, int player_id) {
-    if (game->deck_size <= 0) return -1; // Empty deck
-    if (game->player_hand_size[player_id] >= MAX_CARDS_PER_PLAYER) return -2; // Hand full
-
-    // 1. Get top card
-    int card = game->deck[game->deck_size - 1];
-    game->deck_size--;
-
-    // 2. Add to player hand
-    int hand_idx = game->player_hand_size[player_id];
-    game->player_hands[player_id][hand_idx] = card;
-    game->player_hand_size[player_id]++;
-
-    // 3. Update Score (Simple rule: Card Value = Score)
-    game->player_scores[player_id] += card;
-
-    return card;
-}

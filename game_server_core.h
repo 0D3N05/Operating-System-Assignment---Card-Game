@@ -55,7 +55,7 @@ typedef struct {
 // 1. Process management (fork(), SIGCHLD, waitpid())
 void setup_signal_handlers(void);
 void sigchld_handler(int sig);
-pid_t create_client_process(int player_id);
+pid_t create_client_process(int player_id, SharedCardGameData* game);
 
 // 2. Shared memory structures
 SharedCardGameData* initialize_shared_memory(void);
@@ -69,7 +69,7 @@ void unlock_semaphore(int sem_id);
 // 4. Game logic helpers 
 void initialize_deck(SharedCardGameData* game);
 void shuffle_deck(SharedCardGameData* game);
-int draw_card(SharedCardGameData* game);
+int draw_card(SharedCardGameData* game, int player_id);
 
 // 5. Player management
 int add_player_to_game(pid_t pid, SharedCardGameData* game);

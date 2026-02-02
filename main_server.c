@@ -43,7 +43,7 @@ int main() {
     // Implement fork() for client processes
     pid_t player_pids[MAX_PLAYERS];
     for (int i = 0; i < num_players; i++) {
-        player_pids[i] = create_client_process(i);
+        player_pids[i] = create_client_process(i, game);
         if (player_pids[i] > 0) {
             add_player_to_game(player_pids[i], game);
         }
@@ -69,12 +69,12 @@ int main() {
         print_game_state(game);
         
         // Demo a few turns
-        printf("\nSimulating 3 turns:\n");
+        /* printf("\nSimulating 3 turns:\n");
         for (int i = 0; i < 3; i++) {
             printf("Turn %d: Player %d's turn\n", i + 1, get_current_turn(game));
             set_next_turn(game);
             sleep(1);
-        }
+        } */
         
         printf("\nFinal game state:\n");
         print_game_state(game);

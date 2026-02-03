@@ -37,6 +37,8 @@ int main() {
             printf("Invalid! Must be between %d and %d.\n", MIN_PLAYERS, MAX_PLAYERS);
         }
     }
+
+    while(getchar() != '\n');
     
     printf("\n[4/6] Creating %d client processes using fork()...\n", num_players);
     
@@ -82,7 +84,7 @@ int main() {
     
     // Wait for child processes
     printf("\nWaiting for client processes to finish...\n");
-    sleep(3);
+    while(wait(NULL) > 0);
     
     // Cleanup
     printf("\n=== CLEANUP ===\n");

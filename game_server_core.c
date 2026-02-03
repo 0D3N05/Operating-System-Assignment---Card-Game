@@ -116,30 +116,42 @@ void display_table(SharedCardGameData* game, int player_id) {
 void run_client(int player_id, SharedCardGameData* game) {
     printf("[CLIENT] Player %d ready.\n", player_id);
 
-    while (game->game_status != 2) {
+    while (game->game_status != 2) { // While game is active
         
+        // 1. WAIT FOR TURN
         if (get_current_turn(game) != player_id) {
-            usleep(100000); 
+            usleep(100000); // Sleep 100ms
             continue;
         }
 
+        // 2. MY TURN LOGIC
         display_table(game, player_id);
         printf("\n>>> YOUR TURN! Press ENTER to draw a card...");
-        getchar(); 
-        
+        getchar(); // Wait for user input
+
+        // 3. CRITICAL SECTION
         printf("Drawing card...\n");
         lock_semaphore(game->semaphore_id);
         
         int card = draw_card(game, player_id);
         
-        set_next_turn(game);
+        // === CHECK FOR EMPTY DECK ===
+        if (card == -1) {
+            game->game_status = 2; // Set Global Game Over
+            printf("Deck is empty! Ending game for everyone...\n");
+        } else {
+            set_next_turn(game);   // Pass turn only if game continues
+        }
+        // ============================
         
         unlock_semaphore(game->semaphore_id);
 
         if (card >= 0) {
             printf("You drew card #%d!\n", card);
+        } else if (game->game_status == 2) {
+             break; // Exit loop immediately
         } else {
-            printf("Could not draw card (Deck empty?).\n");
+            printf("Could not draw card.\n");
         }
         
         sleep(1); 
